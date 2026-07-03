@@ -28,9 +28,9 @@ const rooms = {};
 io.on('connection', (socket) => {
     socket.on('createRoom', (data) => {
         const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-        rooms[roomCode] = { players: [], gameActive: false, votes: {}, imposters: [] };
+        rooms[roomCode] = { players: [], gameActive: false, votes: {}, imposters: [], roundCount: 0 };
         
-        rooms[roomCode].players.push({ id: socket.id, name: data.playerName, isHost: true, score: 0, isGhost: false });
+        rooms[roomCode].players.push({ id: socket.id, name: data.playerName, avatar: data.avatar, isHost: true, score: 0, isGhost: false });
         socket.join(roomCode);
         socket.emit('roomData', { roomCode, isHost: true });
         io.to(roomCode).emit('updatePlayers', rooms[roomCode].players);
@@ -38,29 +38,26 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', (data) => {
         const room = rooms[data.roomCode];
-        if (!room) return socket.emit('errorMsg', 'Raum nicht gefunden!');
+        if (!room) return;
         
-        const isGhost = room.gameActive; // Später Beigetretene sind direkt Ghosts
-        room.players.push({ id: socket.id, name: data.playerName, isHost: false, score: 0, isGhost: isGhost });
+        const isGhost = room.gameActive; 
+        room.players.push({ id: socket.id, name: data.playerName, avatar: data.avatar, isHost: false, score: 0, isGhost: isGhost });
         
         socket.join(data.roomCode);
         socket.emit('roomData', { roomCode: data.roomCode, isHost: false });
         io.to(data.roomCode).emit('updatePlayers', room.players);
-        
-        if(isGhost) socket.emit('errorMsg', 'Spiel läuft schon. Du schaust als Ghost zu!');
     });
 
     socket.on('startGame', (data) => {
         const room = rooms[data.roomCode];
         if (!room) return;
         const activePlayers = room.players.filter(p => !p.isGhost);
-        if (activePlayers.length < 3) return socket.emit('errorMsg', 'Mindestens 3 Spieler benötigt!');
+        if (activePlayers.length < 3) return;
 
-        room.gameActive = true; room.votes = {}; room.imposters = [];
+        room.gameActive = true; room.votes = {}; room.imposters = []; room.roundCount++;
         
-        // Wortauswahl Logik
         let finalWord = data.customWord;
-        let finalCat = "Eigenes Wort";
+        let finalCat = "CUSTOM DATA";
 
         if(!finalWord) {
             let catKeys = Object.keys(dictionary);
@@ -70,7 +67,6 @@ io.on('connection', (socket) => {
         }
         room.secretWord = finalWord;
 
-        // Double Trouble (2 Imposter ab 7 Spielern)
         let numImposters = activePlayers.length > 6 ? 2 : 1;
         let shuffled = activePlayers.sort(() => 0.5 - Math.random());
         for(let i=0; i<numImposters; i++) room.imposters.push(shuffled[i].id);
@@ -84,7 +80,11 @@ io.on('connection', (socket) => {
             }
         });
         
-        io.to(data.roomCode).emit('chatMessage', { sys: true, sender: 'System', msg: 'Die Runde beginnt. Wer ist sus?' });
+        io.to(data.roomCode).emit('chatMessage', { sys: true, sender: 'System', msg: 'VERBINDUNG HERGESTELLT. CHAT AKTIV.' });
+    });
+
+    socket.on('typing', (data) => {
+        socket.to(data.roomCode).emit('playerTyping');
     });
 
     socket.on('chatMessage', (data) => {
@@ -92,7 +92,7 @@ io.on('connection', (socket) => {
         if(room) {
             const player = room.players.find(p => p.id === socket.id);
             if(player && !player.isGhost) {
-                io.to(data.roomCode).emit('chatMessage', { sys: false, sender: player.name, msg: data.msg });
+                io.to(data.roomCode).emit('chatMessage', { sys: false, sender: player.name, avatar: player.avatar, msg: data.msg });
             }
         }
     });
@@ -109,7 +109,6 @@ io.on('connection', (socket) => {
         const room = rooms[data.roomCode];
         if (!room) return;
 
-        // null = Skip
         room.votes[socket.id] = data.voteFor;
 
         const aliveCount = room.players.filter(p => !p.isGhost).length;
@@ -129,19 +128,20 @@ io.on('connection', (socket) => {
             if(ejectedId && !tie) {
                 ejectedPlayer = room.players.find(p => p.id === ejectedId);
                 wasImposter = room.imposters.includes(ejectedId);
-                if(ejectedPlayer) ejectedPlayer.isGhost = true; // Stirbt und wird Ghost
+                if(ejectedPlayer) ejectedPlayer.isGhost = true; 
                 
-                // Score System
                 if(wasImposter) {
-                    room.players.forEach(p => { if(!room.imposters.includes(p.id) && !p.isGhost) p.score += 1; }); // Crew +1
+                    room.players.forEach(p => { if(!room.imposters.includes(p.id) && !p.isGhost) p.score += 1; }); 
                 } else {
-                    room.imposters.forEach(impId => { let imp = room.players.find(p => p.id === impId); if(imp) imp.score += 2; }); // Imposter +2
+                    room.imposters.forEach(impId => { let imp = room.players.find(p => p.id === impId); if(imp) imp.score += 2; }); 
                 }
             }
 
             io.to(data.roomCode).emit('gameOver', {
                 ejectedName: ejectedPlayer ? ejectedPlayer.name : null,
-                wasImposter: wasImposter, word: room.secretWord
+                wasImposter: wasImposter, 
+                word: room.secretWord,
+                totalRounds: room.roundCount
             });
             room.gameActive = false;
         }
@@ -150,11 +150,10 @@ io.on('connection', (socket) => {
     socket.on('playAgain', (data) => {
         const room = rooms[data.roomCode];
         if (room) {
-            // Tote werden wieder lebendig
             room.players.forEach(p => p.isGhost = false);
-            io.to(data.roomCode).emit('roomData', { roomCode: data.roomCode, isHost: false }); // Löst UI reset bei Crew aus
+            io.to(data.roomCode).emit('roomData', { roomCode: data.roomCode, isHost: false });
             const host = room.players.find(p=>p.isHost);
-            if(host) io.to(host.id).emit('roomData', { roomCode: data.roomCode, isHost: true }); // Gibt Host die Buttons
+            if(host) io.to(host.id).emit('roomData', { roomCode: data.roomCode, isHost: true }); 
             io.to(data.roomCode).emit('updatePlayers', room.players);
         }
     });
@@ -173,4 +172,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}!`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
