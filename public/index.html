@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="theme-gta">
     
@@ -46,6 +47,8 @@
             <div class="bento-card">
                 <span class="card-number">LOBBY</span>
                 <h2>CODE: <span id="display-room-code" class="color-shift">ABCD</span></h2>
+                
+                <button id="btn-open-invite" class="clean-btn" style="margin-bottom: 20px; font-size: 0.7rem;">QR CODE & INVITE LINK</button>
                 
                 <div class="glass-list-container">
                     <ul id="player-list" class="glass-list"></ul>
@@ -161,6 +164,18 @@
             <h2 id="modal-title" class="color-shift">MELDUNG</h2>
             <p id="modal-message" style="margin-bottom: 25px; color: var(--text-muted); font-size: 1.1rem; line-height: 1.5;"></p>
             <button id="btn-close-modal" class="primary-btn">VERSTANDEN</button>
+        </div>
+    </div>
+
+    <div id="invite-modal" class="modal-overlay">
+        <div class="modal-box bento-card text-center">
+            <h2 class="color-shift">INVITE CREWMATES</h2>
+            <div id="qr-container" class="qr-box"></div>
+            <p class="small-text" style="margin: 15px 0; word-break: break-all;" id="invite-link-text">...</p>
+            <div class="hero-buttons">
+                <button id="btn-copy-link" class="primary-btn">LINK KOPIEREN</button>
+                <button id="btn-close-invite" class="clean-btn">SCHLIESSEN</button>
+            </div>
         </div>
     </div>
 

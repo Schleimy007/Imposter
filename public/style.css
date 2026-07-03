@@ -94,7 +94,6 @@ input[type="text"] { text-transform: uppercase; }
 
 .hero-buttons { display: flex; flex-direction: column; align-items: center; gap: 16px; width: 100%; }
 
-/* Smoothe Button Animationen */
 .primary-btn {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 18px; width: 100%; font-size: 1.05rem; font-weight: 800;
@@ -189,7 +188,7 @@ nav .clean-btn { width: auto; padding: 8px 16px; font-size: 0.65rem; }
 
 .ghost-mode { opacity: 0.4; filter: grayscale(100%); pointer-events: none; }
 
-/* Custom Modal Animation & Styles */
+/* Custom Modal & QR Box */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
@@ -202,3 +201,8 @@ nav .clean-btn { width: auto; padding: 8px 16px; font-size: 0.65rem; }
     transform: scale(0.9) translateY(30px); transition: all 0.5s var(--anim-smooth);
 }
 .modal-overlay.active .modal-box { transform: scale(1) translateY(0); }
+
+.qr-box {
+    background: #ffffff; padding: 15px; border-radius: 16px;
+    display: inline-block; margin: 20px auto;
+}

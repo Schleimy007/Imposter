@@ -9,7 +9,6 @@ const io = new Server(server);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 10 Kategorien, 100 Wörter
 const dictionary = {
     "Tiere": ["Elefant", "Pinguin", "Känguru", "Schlange", "Papagei", "Delfin", "Krokodil", "Fledermaus", "Faultier", "Eisbär"],
     "Essen": ["Pizza", "Sushi", "Hamburger", "Spaghetti", "Pfannkuchen", "Döner", "Schokolade", "Käse", "Eiscreme", "Salat"],
@@ -38,7 +37,7 @@ io.on('connection', (socket) => {
 
     socket.on('joinRoom', (data) => {
         const room = rooms[data.roomCode];
-        if (!room) return;
+        if (!room) return socket.emit('errorMsg', 'Der Raum existiert nicht oder der Code ist falsch.');
         
         const isGhost = room.gameActive; 
         room.players.push({ id: socket.id, name: data.playerName, avatar: data.avatar, isHost: false, score: 0, isGhost: isGhost });
@@ -52,7 +51,11 @@ io.on('connection', (socket) => {
         const room = rooms[data.roomCode];
         if (!room) return;
         const activePlayers = room.players.filter(p => !p.isGhost);
-        if (activePlayers.length < 3) return;
+        
+        // BEHOBEN: Hier wird jetzt direkt eine saubere Warnung an den Host gesendet.
+        if (activePlayers.length < 3) {
+            return socket.emit('errorMsg', 'Es werden mindestens 3 Spieler benötigt, um das Spiel zu starten!');
+        }
 
         room.gameActive = true; room.votes = {}; room.imposters = []; room.roundCount++;
         

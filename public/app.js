@@ -17,7 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
         voting: document.getElementById('screen-voting'), result: document.getElementById('screen-result')
     };
 
-    // --- Custom Modal Logic ---
+    // --- Link/Invite System (Check URL for ?code=ABCD) ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('code');
+    if (inviteCode && inviteCode.length === 4) {
+        document.getElementById('room-code-input').value = inviteCode.toUpperCase();
+    }
+
+    // --- Custom Modals ---
     function showModal(title, msg) {
         document.getElementById('modal-title').innerText = title;
         document.getElementById('modal-message').innerText = msg;
@@ -26,6 +33,39 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('btn-close-modal').onclick = () => {
         document.getElementById('custom-modal').classList.remove('active');
+    };
+
+    // Invite Modal Logic
+    document.getElementById('btn-open-invite').onclick = () => {
+        const inviteUrl = window.location.origin + window.location.pathname + '?code=' + currentRoom;
+        
+        // QR Code generieren (vorher leeren)
+        document.getElementById('qr-container').innerHTML = '';
+        new QRCode(document.getElementById('qr-container'), {
+            text: inviteUrl,
+            width: 160,
+            height: 160,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.M
+        });
+
+        document.getElementById('invite-link-text').innerText = inviteUrl;
+        document.getElementById('invite-modal').classList.add('active');
+    };
+
+    document.getElementById('btn-close-invite').onclick = () => {
+        document.getElementById('invite-modal').classList.remove('active');
+    };
+
+    document.getElementById('btn-copy-link').onclick = () => {
+        const inviteUrl = window.location.origin + window.location.pathname + '?code=' + currentRoom;
+        navigator.clipboard.writeText(inviteUrl).then(() => {
+            const btn = document.getElementById('btn-copy-link');
+            const originalText = btn.innerText;
+            btn.innerText = "KOPIERT!";
+            setTimeout(() => { btn.innerText = originalText; }, 2000);
+        });
     };
 
     // --- Theme Switcher ---
@@ -62,6 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
             screens[name].classList.remove('hidden'); 
             screens[name].classList.add('active');
         }, 10);
+        
+        // Clean URL if we leave start screen so reloading doesn't auto-fill again
+        if(name !== 'start') window.history.replaceState({}, document.title, window.location.pathname);
     }
 
     function smoothDecryption(element, finalWord, isImposter) {
@@ -90,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-join-room').onclick = () => {
         myName = document.getElementById('player-name').value.trim();
         const code = document.getElementById('room-code-input').value.trim().toUpperCase();
-        if(!myName || code.length !== 4) return showModal("DATEN UNVOLLSTÄNDIG", "Bitte überprüfe deinen Alias und stelle sicher, dass der Code 4 Zeichen lang ist.");
+        if(!myName || code.length !== 4) return showModal("DATEN FEHLERHAFT", "Überprüfe deinen Alias und stelle sicher, dass der Code 4 Zeichen lang ist.");
         socket.emit('joinRoom', { playerName: myName, avatar: myAvatar, roomCode: code });
     };
 
