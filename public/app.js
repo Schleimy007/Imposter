@@ -1,216 +1,265 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ==================== 1. VARIABLEN & SETUP ====================
-    // Verbindung zum (späteren) Server aufbauen
-    // (Wird einen Fehler werfen, wenn kein Server läuft - das ist okay für den Moment!)
     const socket = typeof io !== 'undefined' ? io() : null;
 
-    // Spiel-Status speichern
+    // State
     let currentRoom = null;
     let myName = '';
     let isHost = false;
-    let myRole = null;
+    let myRole = null; // 'imposter', 'crewmate', 'ghost'
     let secretWord = '';
+    let categoryHint = '';
     let roundTimer = null;
+    let voteTimer = null;
+    let audioCtx = null;
 
-    // ==================== 2. DOM ELEMENTE SAMMELN ====================
-    // Screens
+    // Audio Engine (Generiert SFX ohne Dateien)
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    function playBeep() {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+    function playWush() {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator(); osc.type = 'triangle'; 
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+        osc.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    }
+    function playDrop() {
+        if(!audioCtx) return;
+        const osc = audioCtx.createOscillator(); osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1);
+        osc.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 1);
+    }
+
+    // Screens & UI
     const screens = {
-        start: document.getElementById('screen-start'),
-        lobby: document.getElementById('screen-lobby'),
-        role: document.getElementById('screen-role'),
-        game: document.getElementById('screen-game'),
-        voting: document.getElementById('screen-voting'),
-        result: document.getElementById('screen-result')
+        start: document.getElementById('screen-start'), lobby: document.getElementById('screen-lobby'),
+        role: document.getElementById('screen-role'), game: document.getElementById('screen-game'),
+        voting: document.getElementById('screen-voting'), result: document.getElementById('screen-result')
     };
 
-    // Inputs & Buttons
-    const inputName = document.getElementById('player-name');
-    const inputRoom = document.getElementById('room-code-input');
-    const btnCreate = document.getElementById('btn-create-room');
-    const btnJoin = document.getElementById('btn-join-room');
-    const btnStartGame = document.getElementById('btn-start-game');
-    const secretCard = document.getElementById('secret-card');
-    const btnReady = document.getElementById('btn-ready');
-    const btnEndRound = document.getElementById('btn-end-round');
-    const btnPlayAgain = document.getElementById('btn-play-again');
-
-    // ==================== 3. HILFSFUNKTIONEN ====================
-    // Wechselt geschmeidig zwischen den Bildschirmen
-    function showScreen(screenName) {
-        Object.values(screens).forEach(screen => {
-            screen.classList.remove('active');
-            screen.classList.add('hidden');
-        });
-        screens[screenName].classList.remove('hidden');
-        screens[screenName].classList.add('active');
+    function showScreen(name) {
+        Object.values(screens).forEach(s => { s.classList.remove('active'); s.classList.add('hidden'); });
+        screens[name].classList.remove('hidden'); screens[name].classList.add('active');
     }
 
-    // Zeigt Benachrichtigungen an (z.B. wenn Code falsch ist)
-    function showError(msg) {
-        alert("Fehler: " + msg); // Später können wir das durch ein cooles UI-Popup ersetzen
-    }
-
-    // ==================== 4. UI EVENT LISTENERS (Klicks) ====================
-    
-    // Raum erstellen (Host)
-    btnCreate.addEventListener('click', () => {
-        myName = inputName.value.trim();
-        if (!myName) return showError('Bitte gib einen Namen ein!');
-        if (socket) socket.emit('createRoom', { playerName: myName });
-    });
-
-    // Raum beitreten
-    btnJoin.addEventListener('click', () => {
-        myName = inputName.value.trim();
-        const code = inputRoom.value.trim().toUpperCase();
-        if (!myName) return showError('Bitte gib einen Namen ein!');
-        if (code.length !== 4) return showError('Code muss 4 Zeichen haben!');
-        if (socket) socket.emit('joinRoom', { playerName: myName, roomCode: code });
-    });
-
-    // Spiel aus der Lobby heraus starten
-    btnStartGame.addEventListener('click', () => {
-        if (socket && currentRoom) socket.emit('startGame', { roomCode: currentRoom });
-    });
-
-    // Karte antippen um Rolle zu sehen
-    secretCard.addEventListener('click', () => {
-        secretCard.classList.add('revealed');
-        document.getElementById('role-title').innerText = myRole === 'imposter' ? 'Du bist der' : 'Das geheime Wort ist';
-        document.getElementById('secret-word').innerText = myRole === 'imposter' ? 'IMPOSTER' : secretWord;
-        document.getElementById('secret-word').classList.remove('hidden');
+    // Hacker Animation
+    function hackerDecryption(element, finalWord, isImposter) {
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*!?";
+        let iter = 0;
+        element.classList.remove('hidden');
+        element.style.color = isImposter ? 'var(--neon-red)' : 'var(--neon-cyan)';
+        element.style.textShadow = isImposter ? '0 0 10px var(--neon-red)' : '0 0 10px var(--neon-cyan)';
         
-        if (myRole === 'imposter') {
-            document.getElementById('secret-word').style.color = 'var(--neon-red)';
-            document.getElementById('secret-word').style.textShadow = '0 0 10px var(--neon-red)';
+        const interval = setInterval(() => {
+            element.innerText = finalWord.split("").map((letter, i) => {
+                if(i < iter) return letter;
+                return chars[Math.floor(Math.random() * chars.length)];
+            }).join("");
+            if(iter >= finalWord.length) clearInterval(interval);
+            iter += 1/3;
+        }, 30);
+    }
+
+    // UI Events
+    document.getElementById('btn-create-room').onclick = () => {
+        initAudio(); myName = document.getElementById('player-name').value.trim();
+        if(!myName) return alert('Name fehlt!');
+        socket.emit('createRoom', { playerName: myName });
+    };
+
+    document.getElementById('btn-join-room').onclick = () => {
+        initAudio(); myName = document.getElementById('player-name').value.trim();
+        const code = document.getElementById('room-code-input').value.trim().toUpperCase();
+        if(!myName || code.length !== 4) return alert('Daten unvollständig!');
+        socket.emit('joinRoom', { playerName: myName, roomCode: code });
+    };
+
+    document.getElementById('btn-start-game').onclick = () => {
+        playBeep();
+        const cat = document.getElementById('category-select').value;
+        const custom = document.getElementById('custom-word').value.trim();
+        socket.emit('startGame', { roomCode: currentRoom, category: cat, customWord: custom });
+    };
+
+    document.getElementById('secret-card').onclick = () => {
+        if(document.getElementById('secret-card').classList.contains('revealed')) return;
+        playWush();
+        document.getElementById('secret-card').classList.add('revealed');
+        document.getElementById('role-title').innerText = myRole === 'imposter' ? 'Du bist der' : 'Dein Wort ist:';
+        
+        hackerDecryption(document.getElementById('secret-word'), myRole === 'imposter' ? 'IMPOSTER' : secretWord, myRole === 'imposter');
+        
+        if(myRole === 'imposter') {
+            document.getElementById('lifesaver-text').classList.remove('hidden');
+            document.getElementById('category-hint').innerText = categoryHint;
         }
+        document.getElementById('btn-ready').classList.remove('hidden');
+    };
 
-        btnReady.classList.remove('hidden');
-    });
-
-    // Spieler ist bereit nach dem Kartenlesen
-    btnReady.addEventListener('click', () => {
-        if (socket) socket.emit('playerReady', { roomCode: currentRoom });
+    document.getElementById('btn-ready').onclick = () => {
+        playBeep(); socket.emit('playerReady', { roomCode: currentRoom });
+        document.getElementById('chat-messages').innerHTML = ''; // Clear chat
         showScreen('game');
-        startTimer(180); // 3 Minuten Timer
-    });
+        startTimer(180);
+    };
 
-    // Abstimmung einleiten
-    btnEndRound.addEventListener('click', () => {
-        clearInterval(roundTimer);
-        if (socket) socket.emit('startVoting', { roomCode: currentRoom });
-    });
+    // Chat Logic
+    document.getElementById('btn-send-chat').onclick = sendChat;
+    document.getElementById('chat-input').onkeypress = (e) => { if(e.key === 'Enter') sendChat(); };
+    
+    function sendChat() {
+        const inp = document.getElementById('chat-input');
+        if(inp.value.trim() && myRole !== 'ghost') {
+            socket.emit('chatMessage', { roomCode: currentRoom, msg: inp.value.trim() });
+            inp.value = '';
+        }
+    }
 
-    // Neue Runde
-    btnPlayAgain.addEventListener('click', () => {
-        if (socket) socket.emit('playAgain', { roomCode: currentRoom });
-    });
+    document.getElementById('btn-end-round').onclick = () => {
+        playBeep(); socket.emit('startVoting', { roomCode: currentRoom });
+    };
 
+    document.getElementById('btn-skip-vote').onclick = () => submitVote(null);
+    document.getElementById('btn-play-again').onclick = () => {
+        playBeep(); socket.emit('playAgain', { roomCode: currentRoom });
+    };
 
-    // ==================== 5. SOCKET EVENTS (Antworten vom Server) ====================
+    // Socket Events
     if (socket) {
-        // Wenn Raum erfolgreich erstellt wurde
-        socket.on('roomCreated', (data) => {
+        socket.on('roomData', (data) => {
             currentRoom = data.roomCode;
-            isHost = true;
+            isHost = data.isHost;
             document.getElementById('display-room-code').innerText = currentRoom;
-            btnStartGame.classList.remove('hidden'); // Host darf starten
+            
+            if(isHost) {
+                document.getElementById('host-settings').classList.remove('hidden');
+                document.getElementById('btn-start-game').classList.remove('hidden');
+                document.getElementById('wait-msg').classList.add('hidden');
+                document.getElementById('btn-play-again').classList.remove('hidden');
+                document.getElementById('result-wait-msg').classList.add('hidden');
+            }
             showScreen('lobby');
         });
 
-        // Wenn Raum erfolgreich betreten wurde
-        socket.on('roomJoined', (data) => {
-            currentRoom = data.roomCode;
-            document.getElementById('display-room-code').innerText = currentRoom;
-            showScreen('lobby');
-        });
-
-        // Wenn jemand der Lobby beitritt oder sie verlässt
         socket.on('updatePlayers', (players) => {
-            const list = document.getElementById('player-list');
-            list.innerHTML = ''; // Liste leeren
+            const list = document.getElementById('player-list'); list.innerHTML = '';
             players.forEach(p => {
-                const li = document.createElement('li');
-                li.innerHTML = `<span>${p.name}</span> ${p.isHost ? '👑' : ''}`;
-                list.appendChild(li);
+                list.innerHTML += `<li><span>${p.name} ${p.isHost ? '👑' : ''} ${p.isGhost ? '👻' : ''}</span> <span>🏆 ${p.score}</span></li>`;
             });
         });
 
-        // Server sagt: Spiel geht los!
         socket.on('gameStarted', (data) => {
-            myRole = data.role;
-            secretWord = data.word;
+            myRole = data.role; secretWord = data.word; categoryHint = data.category;
             
-            // Karte zurücksetzen
-            secretCard.classList.remove('revealed');
-            document.getElementById('role-title').innerText = 'Tippen zum Aufdecken';
-            document.getElementById('secret-word').classList.add('hidden');
-            document.getElementById('secret-word').style = ''; // Styles resetten
-            btnReady.classList.add('hidden');
+            // Reset Card UI
+            document.getElementById('secret-card').classList.remove('revealed');
+            document.getElementById('role-title').innerText = 'HACKING...';
+            document.getElementById('secret-word').innerText = '***';
+            document.getElementById('secret-word').style = '';
+            document.getElementById('lifesaver-text').classList.add('hidden');
+            document.getElementById('btn-ready').classList.add('hidden');
+            
+            // Ghost restrictions
+            const isGhost = myRole === 'ghost';
+            document.getElementById('chat-input').disabled = isGhost;
+            document.getElementById('btn-send-chat').disabled = isGhost;
+            document.getElementById('btn-end-round').disabled = isGhost;
+            document.getElementById('game-status-title').innerText = isGhost ? "Zuschauer-Modus 👻" : "Diskussion";
             
             showScreen('role');
         });
 
-        // Server sagt: Es wird abgestimmt!
-        socket.on('votingStarted', (players) => {
-            clearInterval(roundTimer);
-            const list = document.getElementById('voting-list');
-            list.innerHTML = '';
+        socket.on('chatMessage', (data) => {
+            const box = document.getElementById('chat-messages');
+            box.innerHTML += `<div class="chat-msg ${data.sys ? 'system' : ''}"><b>${data.sender}:</b> ${data.msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+        });
+
+        socket.on('votingStarted', (alivePlayers) => {
+            clearInterval(roundTimer); playAlarm();
+            const list = document.getElementById('voting-list'); list.innerHTML = '';
             
-            players.forEach(p => {
-                if (p.name !== myName) { // Man kann nicht für sich selbst stimmen
-                    const btn = document.createElement('button');
-                    btn.className = 'vote-btn';
-                    btn.innerText = `Stimme für ${p.name}`;
-                    btn.onclick = () => {
-                        socket.emit('submitVote', { roomCode: currentRoom, voteFor: p.id });
-                        list.innerHTML = '<p class="text-center">Stimme abgegeben. Warte auf andere...</p>';
-                    };
-                    list.appendChild(btn);
-                }
-            });
+            if(myRole === 'ghost') {
+                list.innerHTML = '<p class="text-center">Ghosts dürfen nicht abstimmen.</p>';
+                document.getElementById('btn-skip-vote').classList.add('hidden');
+                startVoteTimer(30, true);
+            } else {
+                document.getElementById('btn-skip-vote').classList.remove('hidden');
+                alivePlayers.forEach(p => {
+                    if (p.id !== socket.id) {
+                        const btn = document.createElement('button');
+                        btn.className = 'vote-btn'; btn.innerText = `Stimme für ${p.name}`;
+                        btn.onclick = () => submitVote(p.id);
+                        list.appendChild(btn);
+                    }
+                });
+                startVoteTimer(30, false);
+            }
             showScreen('voting');
         });
 
-        // Server verkündet das Ergebnis
         socket.on('gameOver', (data) => {
-            document.getElementById('result-message').innerText = `${data.ejectedName} wurde rausgeworfen.`;
-            const revealText = document.getElementById('imposter-reveal');
+            clearInterval(voteTimer); playDrop();
+            document.getElementById('result-message').innerText = data.ejectedName ? `${data.ejectedName} wurde rausgeworfen.` : 'Niemand wurde rausgeworfen (Skip).';
             
-            if (data.wasImposter) {
-                revealText.innerText = "Er war der Imposter! Die Crew gewinnt.";
-                revealText.style.color = "var(--neon-cyan)";
+            const rev = document.getElementById('imposter-reveal');
+            if(data.wasImposter) {
+                rev.innerText = "Ein Imposter wurde erwischt!"; rev.className = "glow-text";
+            } else if (data.ejectedName) {
+                rev.innerText = "Falsche Wahl! Unschuldig."; rev.className = "glow-red";
             } else {
-                revealText.innerText = "Er war unschuldig! Der Imposter gewinnt.";
-                revealText.style.color = "var(--neon-red)";
+                rev.innerText = "Die Imposter sind noch da."; rev.className = "glow-red";
             }
             
             document.getElementById('reveal-word').innerText = data.word;
             showScreen('result');
         });
 
-        // Server meldet einen Fehler
-        socket.on('errorMsg', (msg) => {
-            showError(msg);
-        });
+        socket.on('errorMsg', (msg) => alert("Fehler: " + msg));
     }
 
-    // ==================== 6. TIMER LOGIK ====================
+    function submitVote(targetId) {
+        clearInterval(voteTimer);
+        document.getElementById('voting-list').innerHTML = '<p class="text-center">Stimme abgegeben...</p>';
+        document.getElementById('btn-skip-vote').classList.add('hidden');
+        if(socket) socket.emit('submitVote', { roomCode: currentRoom, voteFor: targetId });
+    }
+
     function startTimer(seconds) {
         const display = document.getElementById('timer-display');
-        let timeLeft = seconds;
-        
-        clearInterval(roundTimer);
+        let timeLeft = seconds; clearInterval(roundTimer);
         roundTimer = setInterval(() => {
-            let m = Math.floor(timeLeft / 60);
-            let s = timeLeft % 60;
+            let m = Math.floor(timeLeft / 60); let s = timeLeft % 60;
             display.innerText = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-            
+            if (timeLeft <= 0) clearInterval(roundTimer);
+            timeLeft--;
+        }, 1000);
+    }
+
+    function startVoteTimer(seconds, isGhost) {
+        const display = document.getElementById('voting-timer');
+        let timeLeft = seconds; clearInterval(voteTimer);
+        voteTimer = setInterval(() => {
+            display.innerText = timeLeft;
             if (timeLeft <= 0) {
-                clearInterval(roundTimer);
-                display.innerText = "00:00";
+                clearInterval(voteTimer);
+                if(!isGhost) submitVote(null); // Auto-Skip wenn Zeit abgelaufen
             }
             timeLeft--;
         }, 1000);
+    }
+
+    function playAlarm() {
+        if(!audioCtx) return;
+        let count = 0;
+        let int = setInterval(() => {
+            const osc = audioCtx.createOscillator(); osc.type = 'square'; osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            count++; if(count > 4) clearInterval(int);
+        }, 200);
     }
 });

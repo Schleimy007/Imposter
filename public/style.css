@@ -1,237 +1,100 @@
-/* ==================== BASIS & VARIABLEN ==================== */
 :root {
     --bg-dark: #0a0f1c;
-    --bg-gradient: radial-gradient(circle at top right, #1e1b4b, #0a0f1c 70%);
+    --bg-gradient: radial-gradient(circle at top right, #1e1b4b, #0a0f1c 80%);
     --neon-cyan: #00f0ff;
     --neon-purple: #bd00ff;
     --neon-red: #ff2a2a;
-    --glass-bg: rgba(255, 255, 255, 0.03);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
 }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
 
 body {
-    background: var(--bg-dark);
-    background-image: var(--bg-gradient);
-    color: var(--text-main);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Verhindert Pull-to-Refresh auf Handys */
-    overscroll-behavior-y: none; 
+    background: var(--bg-dark); background-image: var(--bg-gradient);
+    color: var(--text-main); height: 100vh; display: flex;
+    justify-content: center; align-items: center; overscroll-behavior-y: none;
 }
 
 #app-container {
-    width: 100%;
-    max-width: 450px; /* Perfekt für Handys, sieht auch auf PC als schmale Spalte gut aus */
-    height: 100vh;
-    max-height: 900px;
-    position: relative;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
+    width: 100%; max-width: 450px; height: 100vh; max-height: 850px;
+    padding: 15px; display: flex; flex-direction: column;
 }
 
-/* ==================== SCREENS & ANIMATIONEN ==================== */
-.screen {
-    display: none;
-    flex: 1;
-    flex-direction: column;
-    justify-content: center;
-    animation: fadeIn 0.4s ease-out forwards;
-}
+.screen { display: none; flex: 1; flex-direction: column; justify-content: center; animation: fadeIn 0.3s ease-out; }
+.screen.active { display: flex; }
+.hidden { display: none !important; }
 
-.screen.active {
-    display: flex;
-}
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-/* Wird von JS gesteuert, um Elemente auszublenden */
-.hidden {
-    display: none !important;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ==================== GLASSMORPHISM UI ==================== */
 .glass-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 30px 20px;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    text-align: center;
-}
-
-.glass-list {
-    list-style: none;
-    margin: 20px 0;
-    text-align: left;
-}
-
-.glass-list li, .glass-list .vote-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
-    padding: 12px 15px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-main);
-}
-
-.glass-list .vote-btn {
-    width: 100%;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.glass-list .vote-btn:active {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(0.98);
-}
-
-/* ==================== TYPOGRAFIE & GLOW ==================== */
-h1 { font-size: 2.5rem; margin-bottom: 5px; letter-spacing: 2px; }
-h2 { font-size: 1.5rem; margin-bottom: 10px; }
-p { color: var(--text-muted); margin-bottom: 20px; line-height: 1.4; }
-.small-text { font-size: 0.85rem; margin-top: 15px; }
-
-.glow-text {
-    color: #fff;
-    text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+    background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
 .text-center { text-align: center; }
+h1 { font-size: 2.2rem; margin-bottom: 5px; }
+h2 { font-size: 1.4rem; margin-bottom: 10px; }
+p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 15px; }
+.small-text { font-size: 0.8rem; margin-bottom: 5px; color: var(--text-muted); }
 
-/* ==================== INPUTS & BUTTONS ==================== */
-.input-group {
-    margin-bottom: 15px;
-}
+.glow-text { color: #fff; text-shadow: 0 0 8px var(--neon-cyan); }
+.glow-red { color: #fff; text-shadow: 0 0 8px var(--neon-red); }
 
-input[type="text"] {
-    width: 100%;
-    padding: 15px;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--glass-border);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 1rem;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.3s;
+.input-group { margin-bottom: 12px; width: 100%; }
+input[type="text"], .custom-select {
+    width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border); border-radius: 10px; color: #fff;
+    font-size: 1rem; text-align: center; outline: none; transition: 0.3s;
 }
-
-input[type="text"]:focus {
-    border-color: var(--neon-cyan);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-}
+input[type="text"]:focus, .custom-select:focus { border-color: var(--neon-cyan); }
+.custom-select { text-align: left; appearance: none; }
 
 .btn {
-    width: 100%;
-    padding: 15px;
-    border: none;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-    margin-bottom: 10px;
-    transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    width: 100%; padding: 14px; border: none; border-radius: 10px; font-size: 1rem;
+    font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase;
 }
+.btn:active { transform: scale(0.95); }
+.btn.primary { background: linear-gradient(45deg, #00d2ff, #3a7bd5); color: #fff; }
+.btn.glow-btn { box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); }
+.btn.secondary { background: rgba(255,255,255,0.1); border: 1px solid var(--text-muted); color: #fff; }
+.btn.danger { background: linear-gradient(45deg, #ff416c, #ff4b2b); color: #fff; box-shadow: 0 0 15px rgba(255, 65, 108, 0.4); }
 
-.btn:active {
-    transform: scale(0.96);
-}
-
-.btn.primary {
-    background: linear-gradient(45deg, #00d2ff, #3a7bd5);
-    color: #fff;
-}
-
-.btn.glow-btn {
-    box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
-}
-
-.btn.secondary {
-    background: transparent;
-    border: 1px solid var(--text-muted);
-    color: var(--text-main);
-}
-
-.btn.danger {
-    background: linear-gradient(45deg, #ff416c, #ff4b2b);
-    color: #fff;
-    box-shadow: 0 0 15px rgba(255, 65, 108, 0.4);
-}
-
-.divider {
-    display: flex;
-    align-items: center;
-    margin: 20px 0;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-}
-
-.divider::before, .divider::after {
-    content: '';
-    flex: 1;
-    border-bottom: 1px solid var(--glass-border);
-}
-
+.divider { display: flex; align-items: center; margin: 15px 0; color: var(--text-muted); font-size: 0.8rem; }
+.divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid var(--glass-border); }
 .divider span { margin: 0 10px; }
 
-/* ==================== SPEZIELLE ELEMENTE ==================== */
-/* Die Geheimkarte */
+/* Ghost Mode */
+.ghost-mode { opacity: 0.5; pointer-events: none; }
+
+/* Karte */
 #secret-card {
-    background: repeating-linear-gradient(
-        45deg,
-        rgba(255,255,255,0.05),
-        rgba(255,255,255,0.05) 10px,
-        rgba(255,255,255,0.02) 10px,
-        rgba(255,255,255,0.02) 20px
-    );
-    border: 2px dashed var(--text-muted);
-    border-radius: 15px;
-    height: 150px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 25px;
-    cursor: pointer;
-    transition: all 0.3s;
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02) 10px, transparent 10px, transparent 20px);
+    border: 2px dashed var(--text-muted); border-radius: 12px; height: 140px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 20px; cursor: pointer; transition: 0.3s;
 }
+#secret-card.revealed { border: 2px solid var(--neon-purple); background: rgba(189, 0, 255, 0.1); box-shadow: inset 0 0 20px rgba(189, 0, 255, 0.2); }
 
-#secret-card.revealed {
-    border: 2px solid var(--neon-purple);
-    background: rgba(189, 0, 255, 0.1);
-    box-shadow: inset 0 0 20px rgba(189, 0, 255, 0.2);
-}
+/* Chat Box */
+.chat-box { flex: 1; display: flex; flex-direction: column; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); }
+#chat-messages { flex: 1; overflow-y: auto; text-align: left; margin-bottom: 10px; font-size: 0.9rem; max-height: 250px; }
+.chat-msg { background: rgba(255,255,255,0.08); padding: 8px 12px; border-radius: 12px; margin-bottom: 5px; width: fit-content; max-width: 90%; }
+.chat-msg.system { background: transparent; color: var(--neon-cyan); font-size: 0.8rem; font-style: italic; }
+.chat-inputs { display: flex; gap: 8px; }
+.chat-inputs input { text-align: left; }
+.chat-inputs button { width: 60px; padding: 0; font-size: 1.5rem; }
 
-.timer-container h1 {
-    font-size: 4rem;
-    margin: 30px 0;
-    font-variant-numeric: tabular-nums; /* Verhindert, dass der Timer beim Ticken wackelt */
+/* Listen */
+.glass-list { list-style: none; margin: 15px 0; }
+.glass-list li, .glass-list .vote-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 12px;
+    border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; color: #fff;
 }
+.slim-list li { padding: 8px 12px; font-size: 0.9rem; }
+.glass-list .vote-btn { width: 100%; cursor: pointer; }
 
-.result-box {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 20px;
-    border-radius: 12px;
-    margin: 20px 0;
-}
+.result-box { background: rgba(0,0,0,0.4); padding: 20px; border-radius: 12px; margin: 20px 0; }
+.timer-small { font-size: 2.5rem; margin: 10px 0; font-variant-numeric: tabular-nums; }

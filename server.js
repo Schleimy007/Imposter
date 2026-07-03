@@ -7,122 +7,158 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Ordner "public" für alle Spieler freigeben (HTML, CSS, JS)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Datenbank für laufende Spiele (Speichert Lobbys und Spieler)
+// 10 Kategorien, 100 Wörter
+const dictionary = {
+    "Tiere": ["Elefant", "Pinguin", "Känguru", "Schlange", "Papagei", "Delfin", "Krokodil", "Fledermaus", "Faultier", "Eisbär"],
+    "Essen": ["Pizza", "Sushi", "Hamburger", "Spaghetti", "Pfannkuchen", "Döner", "Schokolade", "Käse", "Eiscreme", "Salat"],
+    "Technik": ["Smartphone", "Laptop", "Kopfhörer", "Drohne", "Fernseher", "Tastatur", "Smartwatch", "Drucker", "Router", "Kamera"],
+    "Berufe": ["Arzt", "Lehrer", "Polizist", "Feuerwehrmann", "Astronaut", "Koch", "Pilot", "Programmierer", "Anwalt", "Friseur"],
+    "Sport": ["Fußball", "Tennis", "Schwimmen", "Basketball", "Boxen", "Klettern", "Skifahren", "Volleyball", "Golf", "Tauchen"],
+    "Filme & Serien": ["Titanic", "Star Wars", "Harry Potter", "Matrix", "Avengers", "Herr der Ringe", "Jurassic Park", "Avatar", "Inception", "Batman"],
+    "Geografie": ["Eiffelturm", "Mount Everest", "Sahara", "Nordpol", "Grand Canyon", "Amazonas", "Pyramiden", "Freiheitsstatue", "Vulkan", "Insel"],
+    "Zuhause": ["Sofa", "Bett", "Kühlschrank", "Badewanne", "Spiegel", "Teppich", "Staubsauger", "Mikrowelle", "Zahnbürste", "Balkon"],
+    "Fahrzeuge": ["Fahrrad", "Hubschrauber", "U-Boot", "Traktor", "Motorrad", "Flugzeug", "Kreuzfahrtschiff", "Bagger", "Zug", "Rakete"],
+    "Kleidung": ["Socken", "Jeans", "Jacke", "Schuhe", "Mütze", "Schal", "Handschuhe", "Gürtel", "Sonnenbrille", "Unterhose"]
+};
+
 const rooms = {};
 
-// Unsere Wörter-Liste
-const wordList = ["Apfel", "Krankenhaus", "Laptop", "Pizza", "Fahrrad", "Schule", "Kino", "Hund", "Kaffee", "Schwimmbad"];
-
 io.on('connection', (socket) => {
-    console.log('Ein Spieler hat sich verbunden:', socket.id);
-
-    // 1. Raum erstellen
     socket.on('createRoom', (data) => {
-        // Generiere 4-stelligen Code
         const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+        rooms[roomCode] = { players: [], gameActive: false, votes: {}, imposters: [] };
         
-        rooms[roomCode] = {
-            players: [{ id: socket.id, name: data.playerName, isHost: true }],
-            gameActive: false,
-            votes: {}
-        };
-        
+        rooms[roomCode].players.push({ id: socket.id, name: data.playerName, isHost: true, score: 0, isGhost: false });
         socket.join(roomCode);
-        socket.emit('roomCreated', { roomCode });
+        socket.emit('roomData', { roomCode, isHost: true });
         io.to(roomCode).emit('updatePlayers', rooms[roomCode].players);
     });
 
-    // 2. Raum beitreten
     socket.on('joinRoom', (data) => {
         const room = rooms[data.roomCode];
         if (!room) return socket.emit('errorMsg', 'Raum nicht gefunden!');
-        if (room.gameActive) return socket.emit('errorMsg', 'Spiel läuft bereits!');
-
-        room.players.push({ id: socket.id, name: data.playerName, isHost: false });
+        
+        const isGhost = room.gameActive; // Später Beigetretene sind direkt Ghosts
+        room.players.push({ id: socket.id, name: data.playerName, isHost: false, score: 0, isGhost: isGhost });
+        
         socket.join(data.roomCode);
-        socket.emit('roomJoined', { roomCode: data.roomCode });
+        socket.emit('roomData', { roomCode: data.roomCode, isHost: false });
         io.to(data.roomCode).emit('updatePlayers', room.players);
+        
+        if(isGhost) socket.emit('errorMsg', 'Spiel läuft schon. Du schaust als Ghost zu!');
     });
 
-    // 3. Spiel starten
     socket.on('startGame', (data) => {
         const room = rooms[data.roomCode];
-        if (!room || room.players.length < 3) {
-            return socket.emit('errorMsg', 'Ihr braucht mindestens 3 Spieler!');
+        if (!room) return;
+        const activePlayers = room.players.filter(p => !p.isGhost);
+        if (activePlayers.length < 3) return socket.emit('errorMsg', 'Mindestens 3 Spieler benötigt!');
+
+        room.gameActive = true; room.votes = {}; room.imposters = [];
+        
+        // Wortauswahl Logik
+        let finalWord = data.customWord;
+        let finalCat = "Eigenes Wort";
+
+        if(!finalWord) {
+            let catKeys = Object.keys(dictionary);
+            finalCat = (data.category === "Zufall") ? catKeys[Math.floor(Math.random() * catKeys.length)] : data.category;
+            let words = dictionary[finalCat];
+            finalWord = words[Math.floor(Math.random() * words.length)];
         }
+        room.secretWord = finalWord;
 
-        room.gameActive = true;
-        room.votes = {}; // Votes zurücksetzen
+        // Double Trouble (2 Imposter ab 7 Spielern)
+        let numImposters = activePlayers.length > 6 ? 2 : 1;
+        let shuffled = activePlayers.sort(() => 0.5 - Math.random());
+        for(let i=0; i<numImposters; i++) room.imposters.push(shuffled[i].id);
 
-        // Wort und Imposter auswählen
-        const secretWord = wordList[Math.floor(Math.random() * wordList.length)];
-        const imposterIndex = Math.floor(Math.random() * room.players.length);
-        room.imposterId = room.players[imposterIndex].id;
-
-        // Jedem Spieler seine Rolle heimlich schicken
         room.players.forEach(p => {
-            const isImposter = (p.id === room.imposterId);
-            io.to(p.id).emit('gameStarted', {
-                role: isImposter ? 'imposter' : 'crewmate',
-                word: secretWord // Der Imposter bekommt im echten Spiel natürlich nicht das Wort, aber für die Logik der Anzeige schicken wir es mit. In app.js wird es überschrieben!
-            });
+            if(p.isGhost) {
+                io.to(p.id).emit('gameStarted', { role: 'ghost', word: finalWord, category: finalCat });
+            } else {
+                const isImp = room.imposters.includes(p.id);
+                io.to(p.id).emit('gameStarted', { role: isImp ? 'imposter' : 'crewmate', word: finalWord, category: finalCat });
+            }
         });
         
-        // Speichere das geheime Wort im Raum für die spätere Auflösung
-        room.secretWord = secretWord;
+        io.to(data.roomCode).emit('chatMessage', { sys: true, sender: 'System', msg: 'Die Runde beginnt. Wer ist sus?' });
     });
 
-    // 4. Abstimmung starten
+    socket.on('chatMessage', (data) => {
+        const room = rooms[data.roomCode];
+        if(room) {
+            const player = room.players.find(p => p.id === socket.id);
+            if(player && !player.isGhost) {
+                io.to(data.roomCode).emit('chatMessage', { sys: false, sender: player.name, msg: data.msg });
+            }
+        }
+    });
+
     socket.on('startVoting', (data) => {
         const room = rooms[data.roomCode];
         if (room) {
-            io.to(data.roomCode).emit('votingStarted', room.players);
+            const alive = room.players.filter(p => !p.isGhost);
+            io.to(data.roomCode).emit('votingStarted', alive);
         }
     });
 
-    // 5. Stimme abgeben
     socket.on('submitVote', (data) => {
         const room = rooms[data.roomCode];
         if (!room) return;
 
+        // null = Skip
         room.votes[socket.id] = data.voteFor;
 
-        // Haben alle abgestimmt?
-        if (Object.keys(room.votes).length === room.players.length) {
-            // Stimmen auszählen
+        const aliveCount = room.players.filter(p => !p.isGhost).length;
+        if (Object.keys(room.votes).length === aliveCount) {
+            
             const voteCounts = {};
-            Object.values(room.votes).forEach(votedId => {
-                voteCounts[votedId] = (voteCounts[votedId] || 0) + 1;
-            });
+            Object.values(room.votes).forEach(v => { if(v) voteCounts[v] = (voteCounts[v] || 0) + 1; });
 
-            // Wer hat die meisten Stimmen?
-            let ejectedId = Object.keys(voteCounts).reduce((a, b) => voteCounts[a] > voteCounts[b] ? a : b);
-            let ejectedPlayer = room.players.find(p => p.id === ejectedId);
-            let wasImposter = (ejectedId === room.imposterId);
+            let ejectedId = null; let maxVotes = 0; let tie = false;
+            for(let vid in voteCounts) {
+                if(voteCounts[vid] > maxVotes) { maxVotes = voteCounts[vid]; ejectedId = vid; tie = false; }
+                else if (voteCounts[vid] === maxVotes) { tie = true; }
+            }
+
+            let ejectedPlayer = null; let wasImposter = false;
+            
+            if(ejectedId && !tie) {
+                ejectedPlayer = room.players.find(p => p.id === ejectedId);
+                wasImposter = room.imposters.includes(ejectedId);
+                if(ejectedPlayer) ejectedPlayer.isGhost = true; // Stirbt und wird Ghost
+                
+                // Score System
+                if(wasImposter) {
+                    room.players.forEach(p => { if(!room.imposters.includes(p.id) && !p.isGhost) p.score += 1; }); // Crew +1
+                } else {
+                    room.imposters.forEach(impId => { let imp = room.players.find(p => p.id === impId); if(imp) imp.score += 2; }); // Imposter +2
+                }
+            }
 
             io.to(data.roomCode).emit('gameOver', {
-                ejectedName: ejectedPlayer.name,
-                wasImposter: wasImposter,
-                word: room.secretWord
+                ejectedName: ejectedPlayer ? ejectedPlayer.name : null,
+                wasImposter: wasImposter, word: room.secretWord
             });
-            
             room.gameActive = false;
         }
     });
 
-    // 6. Neue Runde (Zurück in die Lobby)
     socket.on('playAgain', (data) => {
         const room = rooms[data.roomCode];
         if (room) {
-            io.to(data.roomCode).emit('roomJoined', { roomCode: data.roomCode });
+            // Tote werden wieder lebendig
+            room.players.forEach(p => p.isGhost = false);
+            io.to(data.roomCode).emit('roomData', { roomCode: data.roomCode, isHost: false }); // Löst UI reset bei Crew aus
+            const host = room.players.find(p=>p.isHost);
+            if(host) io.to(host.id).emit('roomData', { roomCode: data.roomCode, isHost: true }); // Gibt Host die Buttons
             io.to(data.roomCode).emit('updatePlayers', room.players);
         }
     });
 
-    // Spieler verlässt das Spiel (Verbindung bricht ab)
     socket.on('disconnect', () => {
         for (const code in rooms) {
             const room = rooms[code];
@@ -130,7 +166,6 @@ io.on('connection', (socket) => {
             if (playerIndex !== -1) {
                 room.players.splice(playerIndex, 1);
                 io.to(code).emit('updatePlayers', room.players);
-                // Wenn der Raum leer ist, löschen wir ihn
                 if (room.players.length === 0) delete rooms[code];
             }
         }
@@ -138,6 +173,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server läuft! Öffne http://localhost:${PORT} in deinem Browser.`);
-});
+server.listen(PORT, () => console.log(`Server läuft auf Port ${PORT}!`));
