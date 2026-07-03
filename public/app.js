@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const socket = typeof io !== 'undefined' ? io() : null;
 
-    // State
     let currentRoom = null;
     let myName = '';
     let myAvatar = '👽';
@@ -12,14 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let roundTimer = null;
     let voteTimer = null;
 
-    // UI Elements
     const screens = {
         start: document.getElementById('screen-start'), lobby: document.getElementById('screen-lobby'),
         role: document.getElementById('screen-role'), game: document.getElementById('screen-game'),
         voting: document.getElementById('screen-voting'), result: document.getElementById('screen-result')
     };
 
-    // Theme Switcher Logic
+    // --- Custom Modal Logic ---
+    function showModal(title, msg) {
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-message').innerText = msg;
+        document.getElementById('custom-modal').classList.add('active');
+    }
+    
+    document.getElementById('btn-close-modal').onclick = () => {
+        document.getElementById('custom-modal').classList.remove('active');
+    };
+
+    // --- Theme Switcher ---
     document.getElementById('btn-theme-gta').onclick = () => setTheme('gta');
     document.getElementById('btn-theme-apple').onclick = () => setTheme('apple');
     
@@ -29,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-theme-apple').classList.toggle('active', theme === 'apple');
     }
 
-    // Avatar Selection
+    // --- Avatar Selection ---
     const avatars = ['👽', '💀', '🤖', '👻', '🤡', '🦊', '🐱', '🦄'];
     const avatarContainer = document.getElementById('avatar-container');
     avatars.forEach(av => {
@@ -49,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
             s.classList.remove('active'); 
             s.classList.add('hidden'); 
         });
-        // Kleine Verzögerung für den DOM, damit die Animation triggert
         setTimeout(() => {
             screens[name].classList.remove('hidden'); 
             screens[name].classList.add('active');
@@ -72,18 +80,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 30);
     }
 
-    // UI Events
+    // --- Button Events ---
     document.getElementById('btn-create-room').onclick = () => {
         myName = document.getElementById('player-name').value.trim();
-        if(!myName) myName = "Player" + Math.floor(Math.random()*1000);
+        if(!myName) return showModal("IDENTITÄT FEHLT", "Bitte wähle einen Alias aus, bevor du den Raum erstellst.");
         socket.emit('createRoom', { playerName: myName, avatar: myAvatar });
     };
 
     document.getElementById('btn-join-room').onclick = () => {
         myName = document.getElementById('player-name').value.trim();
         const code = document.getElementById('room-code-input').value.trim().toUpperCase();
-        if(!myName) myName = "Player" + Math.floor(Math.random()*1000);
-        if(code.length === 4) socket.emit('joinRoom', { playerName: myName, avatar: myAvatar, roomCode: code });
+        if(!myName || code.length !== 4) return showModal("DATEN UNVOLLSTÄNDIG", "Bitte überprüfe deinen Alias und stelle sicher, dass der Code 4 Zeichen lang ist.");
+        socket.emit('joinRoom', { playerName: myName, avatar: myAvatar, roomCode: code });
     };
 
     document.getElementById('btn-start-game').onclick = () => {
@@ -103,7 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('lifesaver-text').classList.remove('hidden');
             document.getElementById('category-hint').innerText = categoryHint;
             
-            // Generate Fake Tasks/Hints
             const fakes = ["Behaupte, du kennst ein ähnliches Wort.", "Warte ab, was die anderen sagen.", "Nutze ein sehr allgemeines Adjektiv."];
             document.getElementById('fake-task-list').innerText = fakes[Math.floor(Math.random()*fakes.length)];
             document.getElementById('fake-tasks').classList.remove('hidden');
@@ -118,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startTimer(180);
     };
 
-    // Chat Logic
+    // --- Chat Logic ---
     const chatInput = document.getElementById('chat-input');
     document.getElementById('btn-send-chat').onclick = sendChat;
     chatInput.onkeypress = (e) => { if(e.key === 'Enter') sendChat(); };
@@ -148,8 +155,12 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('playAgain', { roomCode: currentRoom });
     };
 
-    // Socket Events
+    // --- Socket Events ---
     if (socket) {
+        socket.on('errorMsg', (msg) => {
+            showModal("SYSTEM MELDUNG", msg);
+        });
+
         socket.on('roomData', (data) => {
             currentRoom = data.roomCode;
             isHost = data.isHost;
@@ -178,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on('gameStarted', (data) => {
             myRole = data.role; secretWord = data.word; categoryHint = data.category;
             
-            // Reset UI
             document.getElementById('secret-card').classList.remove('revealed');
             document.getElementById('role-title').innerText = 'DECRYPTING...';
             document.getElementById('secret-word').innerText = '***';
@@ -209,10 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on('votingStarted', (alivePlayers) => {
             clearInterval(roundTimer);
             const list = document.getElementById('voting-list'); list.innerHTML = '';
-            document.getElementById('sus-fill').style.width = Math.floor(Math.random() * 60 + 20) + '%'; // Random tension
+            document.getElementById('sus-fill').style.width = Math.floor(Math.random() * 60 + 20) + '%'; 
             
             if(myRole === 'ghost') {
-                list.innerHTML = '<p class="small-text text-center">GHOSTS KÖNNEN NICHT ABSTIMMEN.</p>';
+                list.innerHTML = '<p class="small-text text-center" style="margin-top: 15px;">GHOSTS KÖNNEN NICHT ABSTIMMEN.</p>';
                 document.getElementById('btn-skip-vote').classList.add('hidden');
                 startVoteTimer(30, true);
             } else {
@@ -246,7 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             document.getElementById('reveal-word').innerText = data.word;
 
-            // Update Stats Grid
             document.getElementById('stats-grid').innerHTML = `
                 <div class="stat-box"><span class="small-text">ROUNDS</span><span class="stat-val">${data.totalRounds}</span></div>
                 <div class="stat-box"><span class="small-text">WINNER</span><span class="stat-val">${data.wasImposter ? 'CREW' : 'IMPOSTER'}</span></div>
@@ -257,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function submitVote(targetId) {
         clearInterval(voteTimer);
-        document.getElementById('voting-list').innerHTML = '<p class="small-text text-center">STIMME REGISTRIERT. WARTE AUF SERVER...</p>';
+        document.getElementById('voting-list').innerHTML = '<p class="small-text text-center" style="margin-top: 15px;">STIMME REGISTRIERT. WARTE AUF SERVER...</p>';
         document.getElementById('btn-skip-vote').classList.add('hidden');
         if(socket) socket.emit('submitVote', { roomCode: currentRoom, voteFor: targetId });
     }

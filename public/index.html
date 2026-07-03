@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Imposter - Ultimate Edition</title>
-    <!-- Outfit Font[cite: 1] -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800;900&display=swap" rel="stylesheet">
@@ -12,7 +11,6 @@
 </head>
 <body class="theme-gta">
     
-    <!-- Top Navigation (Settings) -->
     <nav>
         <div class="logo">IMPOSTER <span>v3.0</span></div>
         <div class="theme-switch">
@@ -22,8 +20,6 @@
     </nav>
 
     <div id="app-container">
-        
-        <!-- ==================== 1. START ==================== -->
         <section id="screen-start" class="screen active">
             <div class="bento-card hero-static-anim">
                 <span class="version-text">SYSTEM INITIATION</span>
@@ -33,9 +29,7 @@
                     <input type="text" id="player-name" placeholder="Dein Alias" autocomplete="off" maxlength="12">
                 </div>
                 
-                <div class="avatar-selection" id="avatar-container">
-                    <!-- Avatare werden per JS geladen -->
-                </div>
+                <div class="avatar-selection" id="avatar-container"></div>
 
                 <div class="hero-buttons">
                     <button id="btn-create-room" class="primary-btn">RAUM ERSTELLEN</button>
@@ -48,7 +42,6 @@
             </div>
         </section>
 
-        <!-- ==================== 2. LOBBY ==================== -->
         <section id="screen-lobby" class="screen hidden">
             <div class="bento-card">
                 <span class="card-number">LOBBY</span>
@@ -81,7 +74,6 @@
             </div>
         </section>
 
-        <!-- ==================== 3. ROLLE ==================== -->
         <section id="screen-role" class="screen hidden">
             <div class="bento-card text-center">
                 <span class="card-number">IDENTITY</span>
@@ -106,7 +98,6 @@
             </div>
         </section>
 
-        <!-- ==================== 4. GAME & CHAT ==================== -->
         <section id="screen-game" class="screen hidden">
             <div class="bento-card flex-col">
                 <div class="text-center">
@@ -127,7 +118,6 @@
             </div>
         </section>
 
-        <!-- ==================== 5. VOTING ==================== -->
         <section id="screen-voting" class="screen hidden">
             <div class="bento-card">
                 <span class="card-number">VOTING</span>
@@ -145,7 +135,6 @@
             </div>
         </section>
 
-        <!-- ==================== 6. RESULT ==================== -->
         <section id="screen-result" class="screen hidden">
             <div class="bento-card text-center">
                 <span class="card-number">OUTCOME</span>
@@ -157,9 +146,7 @@
                     <p class="small-text">WORT: <span id="reveal-word" style="color: var(--text-pure);">...</span></p>
                 </div>
                 
-                <div class="stats-grid" id="stats-grid">
-                    <!-- Stats per JS -->
-                </div>
+                <div class="stats-grid" id="stats-grid"></div>
                 
                 <div class="hero-buttons" style="margin-top: 30px;">
                     <button id="btn-play-again" class="primary-btn hidden">NEUE RUNDE</button>
@@ -167,6 +154,14 @@
                 <p id="result-wait-msg" class="small-text">Warte auf Host...</p>
             </div>
         </section>
+    </div>
+
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-box bento-card">
+            <h2 id="modal-title" class="color-shift">MELDUNG</h2>
+            <p id="modal-message" style="margin-bottom: 25px; color: var(--text-muted); font-size: 1.1rem; line-height: 1.5;"></p>
+            <button id="btn-close-modal" class="primary-btn">VERSTANDEN</button>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
