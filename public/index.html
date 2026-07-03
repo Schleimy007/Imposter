@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Imposter - Find the Fake</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        
+        <section id="screen-start" class="screen active">
+            <div class="glass-panel">
+                <h1 class="glow-text">IMPOSTER</h1>
+                <p>Traue niemandem.</p>
+                
+                <div class="input-group">
+                    <input type="text" id="player-name" placeholder="Dein Name" autocomplete="off">
+                </div>
+                
+                <button id="btn-create-room" class="btn primary glow-btn">Raum erstellen</button>
+                
+                <div class="divider"><span>ODER</span></div>
+                
+                <div class="input-group">
+                    <input type="text" id="room-code-input" placeholder="4-stelliger Code" maxlength="4" autocomplete="off" style="text-transform: uppercase;">
+                </div>
+                <button id="btn-join-room" class="btn secondary">Raum beitreten</button>
+            </div>
+        </section>
+
+        <section id="screen-lobby" class="screen hidden">
+            <div class="glass-panel">
+                <h2>Lobby-Code: <span id="display-room-code" class="glow-text">ABCD</span></h2>
+                <p>Warte auf Mitspieler...</p>
+                
+                <ul id="player-list" class="glass-list">
+                    </ul>
+                
+                <button id="btn-start-game" class="btn primary glow-btn hidden">Spiel starten</button>
+            </div>
+        </section>
+
+        <section id="screen-role" class="screen hidden">
+            <div class="glass-panel text-center">
+                <h2>Deine Geheimkarte</h2>
+                <p>Tippe auf die Karte, um deine Rolle zu sehen. Lass niemanden mitlesen!</p>
+                
+                <div id="secret-card" class="card-hidden">
+                    <div class="card-content">
+                        <span id="role-title">Tippen zum Aufdecken</span>
+                        <h3 id="secret-word" class="hidden glow-text"></h3>
+                    </div>
+                </div>
+                
+                <button id="btn-ready" class="btn primary hidden">Ich bin bereit</button>
+            </div>
+        </section>
+
+        <section id="screen-game" class="screen hidden">
+            <div class="glass-panel text-center">
+                <h2>Phase: Hinweise geben</h2>
+                <p>Jeder sagt der Reihe nach EIN Wort.</p>
+                
+                <div class="timer-container">
+                    <h1 id="timer-display" class="glow-text">03:00</h1>
+                </div>
+                
+                <button id="btn-end-round" class="btn danger">Abstimmung starten</button>
+            </div>
+        </section>
+
+        <section id="screen-voting" class="screen hidden">
+            <div class="glass-panel">
+                <h2>Wer ist der Imposter?</h2>
+                <p>Wähle den Spieler, der am verdächtigsten ist.</p>
+                
+                <div id="voting-list" class="glass-list">
+                    </div>
+                
+                <p id="voting-status" class="small-text">Warte auf andere Spieler...</p>
+            </div>
+        </section>
+
+        <section id="screen-result" class="screen hidden">
+            <div class="glass-panel text-center">
+                <h2 id="result-title">Ergebnis</h2>
+                
+                <div class="result-box">
+                    <p id="result-message">Spieler X wurde rausgeworfen.</p>
+                    <h3 id="imposter-reveal" class="glow-text">Er war der Imposter!</h3>
+                    <p class="small-text">Das geheime Wort war: <span id="reveal-word">Apfel</span></p>
+                </div>
+                
+                <button id="btn-play-again" class="btn primary glow-btn">Neue Runde</button>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
